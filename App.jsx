@@ -429,7 +429,28 @@ export default function App() {
           const mId = String(m.id || '').trim();
           const mNorm = mNo.toUpperCase().replace(/O/g, '0');
           const mLower = mNorm.toLowerCase();
-          const localEdited = editedMap[mId] || editedMap[mNo] || editedMap[mNorm] || editedMap[mLower];
+          const mDate = String(m.date || '').trim().toLowerCase();
+
+          let localEdited = editedMap[mId] || editedMap[mNo] || (mNorm ? editedMap[mNorm] : null) || (mLower ? editedMap[mLower] : null) || (mDate ? editedMap[mDate] : null);
+
+          if (!localEdited && editedMap) {
+            const allEdits = Object.values(editedMap);
+            for (const edit of allEdits) {
+              if (!edit) continue;
+              const eId = String(edit.id || edit.originalId || '').trim();
+              const eNo = String(edit.batchNo || '').trim();
+              const eNorm = eNo.toUpperCase().replace(/O/g, '0');
+              const eDate = String(edit.date || '').trim().toLowerCase();
+
+              if ((mId && eId && mId === eId) ||
+                  (mNo && eNo && mNo === eNo) ||
+                  (mNorm && eNorm && mNorm === eNorm && mNorm !== '-') ||
+                  (mDate && eDate && mDate === eDate)) {
+                localEdited = edit;
+                break;
+              }
+            }
+          }
 
           if (localEdited && localEdited.actualMaterials) {
             return {
@@ -662,7 +683,15 @@ export default function App() {
       const updated = prev.map(m => {
         const normM = String(m.batchNo || m.id || '').toUpperCase().replace(/O/g, '0');
         const normUp = String(updatedBatch.batchNo || updatedBatch.id || '').toUpperCase().replace(/O/g, '0');
-        return (m.id === updatedBatch.id || normM === normUp || m.date === updatedBatch.date) ? updatedBatch : m;
+        const normOrig = updatedBatch.originalId ? String(updatedBatch.originalId).toUpperCase() : '';
+        const isMatch = (
+          m.id === updatedBatch.id ||
+          (updatedBatch.originalId && m.id === updatedBatch.originalId) ||
+          normM === normUp ||
+          (normOrig && normM === normOrig) ||
+          (m.date && updatedBatch.date && String(m.date).trim().toLowerCase() === String(updatedBatch.date).trim().toLowerCase())
+        );
+        return isMatch ? { ...m, ...updatedBatch } : m;
       });
       localStorage.setItem('hard2soft_manufacturing', JSON.stringify(updated));
       return updated;
@@ -672,9 +701,13 @@ export default function App() {
       const existingEdited = localStorage.getItem('hard2soft_manufacturing_edited_map');
       const map = existingEdited ? JSON.parse(existingEdited) : {};
       const normKey = String(updatedBatch.batchNo || updatedBatch.id).toUpperCase().replace(/O/g, '0');
-      map[updatedBatch.id] = updatedBatch;
-      map[normKey] = updatedBatch;
-      if (updatedBatch.date) map[String(updatedBatch.date).toLowerCase()] = updatedBatch;
+
+      if (updatedBatch.id) map[updatedBatch.id] = updatedBatch;
+      if (updatedBatch.originalId) map[updatedBatch.originalId] = updatedBatch;
+      if (updatedBatch.batchNo) map[updatedBatch.batchNo] = updatedBatch;
+      if (normKey) map[normKey] = updatedBatch;
+      if (updatedBatch.date) map[String(updatedBatch.date).trim().toLowerCase()] = updatedBatch;
+
       localStorage.setItem('hard2soft_manufacturing_edited_map', JSON.stringify(map));
     } catch (e) {
       console.error("Error saving manufacturing edit map:", e);
