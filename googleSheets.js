@@ -641,6 +641,51 @@ export async function fetchLiveSheetsData(webAppUrl) {
           varianceLabel: vLabel
         };
 
+        // Merge any locally saved user edits from localStorage for this batch
+        try {
+          const savedEditedStr = typeof localStorage !== 'undefined' ? localStorage.getItem('hard2soft_manufacturing_edited_map') : null;
+          if (savedEditedStr) {
+            const editedMap = JSON.parse(savedEditedStr);
+            const mId = mfgItem.id;
+            const mNo = mfgItem.batchNo;
+            const mNorm = mNo ? mNo.toUpperCase().replace(/O/g, '0') : '';
+            const mDate = dateStr ? dateStr.trim().toLowerCase() : '';
+
+            let localEdit = editedMap[mId] || editedMap[mNo] || (mNorm ? editedMap[mNorm] : null) || (mDate ? editedMap[mDate] : null);
+            if (!localEdit && editedMap) {
+              const allEdits = Object.values(editedMap);
+              for (const edit of allEdits) {
+                if (!edit) continue;
+                const eId = String(edit.id || edit.originalId || '').trim();
+                const eNo = String(edit.batchNo || '').trim();
+                const eNorm = eNo.toUpperCase().replace(/O/g, '0');
+                const eDate = String(edit.date || '').trim().toLowerCase();
+
+                if ((mId && eId && mId === eId) ||
+                    (mNo && eNo && mNo === eNo) ||
+                    (mNorm && eNorm && mNorm === eNorm && mNorm !== '-') ||
+                    (mDate && eDate && mDate === eDate)) {
+                  localEdit = edit;
+                  break;
+                }
+              }
+            }
+            if (localEdit && localEdit.actualMaterials) {
+              mfgItem.actualMaterials = {
+                ...mfgItem.actualMaterials,
+                ...localEdit.actualMaterials
+              };
+              if (localEdit.qty !== undefined) mfgItem.qty = localEdit.qty;
+              if (localEdit.sleevesUsed !== undefined) mfgItem.sleevesUsed = localEdit.sleevesUsed;
+              if (localEdit.operator) mfgItem.operator = localEdit.operator;
+              if (localEdit.status) mfgItem.status = localEdit.status;
+              if (localEdit.remarks) mfgItem.remarks = localEdit.remarks;
+            }
+          }
+        } catch (e) {
+          console.warn("Notice: Local edited map merge error in googleSheets.js:", e);
+        }
+
         // Key for deduplication
         const normKey = `${dateStr.toLowerCase()}_${displayBatchId.toUpperCase().replace(/O/g, '0')}`;
         mfgMap[normKey] = mfgItem;

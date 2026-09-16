@@ -272,7 +272,7 @@ export default function App() {
         Object.values(mfgMap).forEach(batch => {
           sendSheetsTransaction(url, 'updateManufacturing', batch);
         });
-        localStorage.removeItem('hard2soft_manufacturing_edited_map');
+        // Retain hard2soft_manufacturing_edited_map so local edits persist across all auto-sync cycles
       }
 
       // 2. Push local dispatch / sales edits
@@ -282,7 +282,6 @@ export default function App() {
         Object.values(dispatchMap).forEach(order => {
           sendSheetsTransaction(url, 'updateSalesDispatch', order);
         });
-        localStorage.removeItem('hard2soft_dispatch_local_map');
       }
     } catch (e) {
       console.error("Error pushing pending local edits to sheets:", e);
