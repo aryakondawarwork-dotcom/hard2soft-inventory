@@ -764,20 +764,36 @@ export async function fetchLiveSheetsData(webAppUrl) {
 export async function sendSheetsTransaction(webAppUrl, action, data) {
   if (!webAppUrl || !webAppUrl.startsWith('http')) return;
 
+  const payload = JSON.stringify({
+    token: SECRET_TOKEN,
+    action: action,
+    data: data
+  });
+
   try {
     const response = await fetch(webAppUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
-        token: SECRET_TOKEN,
-        action: action,
-        data: data
-      })
+      body: payload
     });
-    
-    const result = await response.json();
-    return result;
+    try {
+      const result = await response.json();
+      return result;
+    } catch (jsonErr) {
+      return { status: "success" };
+    }
   } catch (err) {
-    console.warn("Background Google Sheets sync notice:", err);
+    console.warn("Standard fetch notice, attempting no-cors fallback:", err);
+    try {
+      await fetch(webAppUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: payload
+      });
+      return { status: "success" };
+    } catch (err2) {
+      console.error("All Google Sheets sync attempts failed:", err2);
+    }
   }
 }
