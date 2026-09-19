@@ -424,6 +424,11 @@ export default function App() {
 
         // Apply locally edited batches to live sheet batches
         const finalMfg = liveData.manufacturing.map(m => {
+          // If Google Sheets already has custom raw material numbers written in Columns I..V, let Google Sheets be the single source of truth across all laptops!
+          if (m.hasSheetCustomMix) {
+            return m;
+          }
+
           const mNo = String(m.batchNo || '').trim();
           const mId = String(m.id || '').trim();
           const mNorm = mNo.toUpperCase().replace(/O/g, '0');

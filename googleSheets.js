@@ -638,52 +638,55 @@ export async function fetchLiveSheetsData(webAppUrl) {
           status: isReturnBatch ? 'Return Restocked' : (qtyVal > 0 ? 'Completed' : 'No Production'),
           isReturnBatch: isReturnBatch,
           actualMaterials: actualMatMap,
-          varianceLabel: vLabel
+          varianceLabel: vLabel,
+          hasSheetCustomMix: customMixFound
         };
 
-        // Merge any locally saved user edits from localStorage for this batch
-        try {
-          const savedEditedStr = typeof localStorage !== 'undefined' ? localStorage.getItem('hard2soft_manufacturing_edited_map') : null;
-          if (savedEditedStr) {
-            const editedMap = JSON.parse(savedEditedStr);
-            const mId = mfgItem.id;
-            const mNo = mfgItem.batchNo;
-            const mNorm = mNo ? mNo.toUpperCase().replace(/O/g, '0') : '';
-            const mDate = dateStr ? dateStr.trim().toLowerCase() : '';
+        // Merge any locally saved user edits from localStorage ONLY IF Google Sheet does not have custom mix in Columns I..V yet
+        if (!customMixFound) {
+          try {
+            const savedEditedStr = typeof localStorage !== 'undefined' ? localStorage.getItem('hard2soft_manufacturing_edited_map') : null;
+            if (savedEditedStr) {
+              const editedMap = JSON.parse(savedEditedStr);
+              const mId = mfgItem.id;
+              const mNo = mfgItem.batchNo;
+              const mNorm = mNo ? mNo.toUpperCase().replace(/O/g, '0') : '';
+              const mDate = dateStr ? dateStr.trim().toLowerCase() : '';
 
-            let localEdit = editedMap[mId] || editedMap[mNo] || (mNorm ? editedMap[mNorm] : null) || (mDate ? editedMap[mDate] : null);
-            if (!localEdit && editedMap) {
-              const allEdits = Object.values(editedMap);
-              for (const edit of allEdits) {
-                if (!edit) continue;
-                const eId = String(edit.id || edit.originalId || '').trim();
-                const eNo = String(edit.batchNo || '').trim();
-                const eNorm = eNo.toUpperCase().replace(/O/g, '0');
-                const eDate = String(edit.date || '').trim().toLowerCase();
+              let localEdit = editedMap[mId] || editedMap[mNo] || (mNorm ? editedMap[mNorm] : null) || (mDate ? editedMap[mDate] : null);
+              if (!localEdit && editedMap) {
+                const allEdits = Object.values(editedMap);
+                for (const edit of allEdits) {
+                  if (!edit) continue;
+                  const eId = String(edit.id || edit.originalId || '').trim();
+                  const eNo = String(edit.batchNo || '').trim();
+                  const eNorm = eNo.toUpperCase().replace(/O/g, '0');
+                  const eDate = String(edit.date || '').trim().toLowerCase();
 
-                if ((mId && eId && mId === eId) ||
-                    (mNo && eNo && mNo === eNo) ||
-                    (mNorm && eNorm && mNorm === eNorm && mNorm !== '-') ||
-                    (mDate && eDate && mDate === eDate)) {
-                  localEdit = edit;
-                  break;
+                  if ((mId && eId && mId === eId) ||
+                      (mNo && eNo && mNo === eNo) ||
+                      (mNorm && eNorm && mNorm === eNorm && mNorm !== '-') ||
+                      (mDate && eDate && mDate === eDate)) {
+                    localEdit = edit;
+                    break;
+                  }
                 }
               }
+              if (localEdit && localEdit.actualMaterials) {
+                mfgItem.actualMaterials = {
+                  ...mfgItem.actualMaterials,
+                  ...localEdit.actualMaterials
+                };
+                if (localEdit.qty !== undefined) mfgItem.qty = localEdit.qty;
+                if (localEdit.sleevesUsed !== undefined) mfgItem.sleevesUsed = localEdit.sleevesUsed;
+                if (localEdit.operator) mfgItem.operator = localEdit.operator;
+                if (localEdit.status) mfgItem.status = localEdit.status;
+                if (localEdit.remarks) mfgItem.remarks = localEdit.remarks;
+              }
             }
-            if (localEdit && localEdit.actualMaterials) {
-              mfgItem.actualMaterials = {
-                ...mfgItem.actualMaterials,
-                ...localEdit.actualMaterials
-              };
-              if (localEdit.qty !== undefined) mfgItem.qty = localEdit.qty;
-              if (localEdit.sleevesUsed !== undefined) mfgItem.sleevesUsed = localEdit.sleevesUsed;
-              if (localEdit.operator) mfgItem.operator = localEdit.operator;
-              if (localEdit.status) mfgItem.status = localEdit.status;
-              if (localEdit.remarks) mfgItem.remarks = localEdit.remarks;
-            }
+          } catch (e) {
+            console.warn("Notice: Local edited map merge error in googleSheets.js:", e);
           }
-        } catch (e) {
-          console.warn("Notice: Local edited map merge error in googleSheets.js:", e);
         }
 
         // Key for deduplication
